@@ -1,3 +1,4 @@
+
 # -*- coding: utf-8 -*-
 """
 flaskbb.forum.models
@@ -741,7 +742,7 @@ class Topic(HideableCRUDMixin, db.Model):
         :param user: The user for whom the readstracker should be updated.
         :param forum: The forum in which the topic is.
         :param forumsread: The forumsread object. It is used to check if there
-                           is a new post since the forum has been marked as
+                           there is a new post since the forum has been marked as
                            read.
         """
         # User is not logged in - abort
@@ -1521,6 +1522,27 @@ class Category(db.Model, CRUDMixin):
         db.session.execute(stmt)
         return self
 
+    @classmethod
+    def _get_forum_alias(cls, user: "User"):
+        from flaskbb.user.models import Group
+
+        if user.is_authenticated:
+            user_groups = [gr.id for gr in user.groups]
+            user_forums = (
+                db.select(Forum)
+                .filter(Forum.groups.any(Group.id.in_(user_groups)))
+                .subquery()
+            )
+            return aliased(Forum, user_forums)
+
+        guest_group = Group.get_guest_group()
+        guest_forums = (
+            db.select(Forum)
+            .filter(Forum.groups.any(Group.id == guest_group.id))
+            .subquery()
+        )
+        return aliased(Forum, guest_forums)
+
     # Classmethods
     @classmethod
     def get_all(cls, user: "User"):
@@ -1536,21 +1558,9 @@ class Category(db.Model, CRUDMixin):
         :param user: The user object is needed to check if we also need their
                      forumsread object.
         """
-        # import Group model locally to avoid cicular imports
-        from flaskbb.user.models import Group
+        forum_alias = cls._get_forum_alias(user)
 
         if user.is_authenticated:
-            # get list of user group ids
-            user_groups = [gr.id for gr in user.groups]
-            # filter forums by user groups
-            user_forums = (
-                db.select(Forum)
-                .filter(Forum.groups.any(Group.id.in_(user_groups)))
-                .subquery()
-            )
-
-            forum_alias = aliased(Forum, user_forums)
-            # get all
             forums = (
                 db.session.execute(
                     db.select(cls, forum_alias, ForumsRead)
@@ -1570,15 +1580,6 @@ class Category(db.Model, CRUDMixin):
                 .all()
             )
         else:
-            guest_group = Group.get_guest_group()
-            # filter forums by guest groups
-            guest_forums = (
-                db.select(Forum)
-                .filter(Forum.groups.any(Group.id == guest_group.id))
-                .subquery()
-            )
-
-            forum_alias = aliased(Forum, guest_forums)
             forums = (
                 db.session.execute(
                     db.select(cls, forum_alias)
@@ -1605,19 +1606,9 @@ class Category(db.Model, CRUDMixin):
         :param user: The user object is needed to check if we also need their
                      forumsread object.
         """
-        from flaskbb.user.models import Group
+        forum_alias = cls._get_forum_alias(user)
 
         if user.is_authenticated:
-            # get list of user group ids
-            user_groups = [gr.id for gr in user.groups]
-            # filter forums by user groups
-            user_forums = (
-                db.select(Forum)
-                .filter(Forum.groups.any(Group.id.in_(user_groups)))
-                .subquery()
-            )
-
-            forum_alias = aliased(Forum, user_forums)
             forums = (
                 db.session.execute(
                     db.select(cls, forum_alias, ForumsRead)
@@ -1638,15 +1629,6 @@ class Category(db.Model, CRUDMixin):
                 .all()
             )
         else:
-            guest_group = Group.get_guest_group()
-            # filter forums by guest groups
-            guest_forums = (
-                db.select(Forum)
-                .filter(Forum.groups.any(Group.id == guest_group.id))
-                .subquery()
-            )
-
-            forum_alias = aliased(Forum, guest_forums)
             forums = (
                 db.session.execute(
                     db.select(cls, forum_alias)
