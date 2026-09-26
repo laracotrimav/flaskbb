@@ -684,11 +684,13 @@ class Topic(HideableCRUDMixin, db.Model):
             logger.debug("Topic is below the read_cutoff (too old).")
             return False
 
-        if (
+        forum_was_cleared_after_last_post = (
             forumsread
             and forumsread.cleared is not None
             and forumsread.cleared >= self.last_post.date_created
-        ):
+        )
+        
+        if forum_was_cleared_after_last_post:
             logger.debug("User has marked the forum as read. No new posts since then.")
             return False
 
