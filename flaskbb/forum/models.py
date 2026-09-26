@@ -554,6 +554,7 @@ class Topic(HideableCRUDMixin, db.Model):
             return self.posts[-2].id
         except IndexError:
             return None
+        return second_last_post.id
 
     @property
     def slug(self):
