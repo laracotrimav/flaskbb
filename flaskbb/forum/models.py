@@ -1,4 +1,3 @@
-
 # -*- coding: utf-8 -*-
 """
 flaskbb.forum.models
@@ -247,13 +246,11 @@ class Post(HideableCRUDMixin, db.Model):
         "Topic", foreign_keys=[topic_id], back_populates="posts"
     )
 
-    # Properties
     @property
     def url(self):
         """Returns the url for the post."""
         return url_for("forum.view_post", post_id=self.id)
 
-    # Methods
     def __init__(
         self,
         content: str | None = None,
@@ -302,14 +299,12 @@ class Post(HideableCRUDMixin, db.Model):
         """
         pluggy.hook.flaskbb_event_post_save_before(post=self)
 
-        # update a post
         if self.id:
             db.session.add(self)
             db.session.commit()
             pluggy.hook.flaskbb_event_post_save_after(post=self, is_new=False)
             return self
 
-        # Adding a new post
         if user and topic:
             with db.session.no_autoflush:
                 created = time_utcnow()
@@ -322,19 +317,16 @@ class Post(HideableCRUDMixin, db.Model):
                     topic.last_updated = created
                     topic.last_post = self
 
-                    # Update the last post info for the forum
                     topic.forum.last_post = self
                     topic.forum.last_post_user = self.user
                     topic.forum.last_post_title = topic.title
                     topic.forum.last_post_username = user.username
                     topic.forum.last_post_created = created
 
-                    # Update the post counts
                     user.post_count += 1
                     topic.post_count += 1
                     topic.forum.post_count += 1
 
-            # And commit it!
             db.session.add(self)
             db.session.commit()
             pluggy.hook.flaskbb_event_post_save_after(post=self, is_new=True)
@@ -343,7 +335,6 @@ class Post(HideableCRUDMixin, db.Model):
     @override
     def delete(self):
         """Deletes a post and returns self."""
-        # This will delete the whole topic
         if self.topic.first_post == self:
             self.topic.delete()
             return self
@@ -388,10 +379,7 @@ class Post(HideableCRUDMixin, db.Model):
 
     def _deal_with_last_post(self):
         if self.topic.last_post == self:
-            # update the last post in the forum
             if self.topic.last_post == self.topic.forum.last_post:
-                # We need the second last post in the forum here,
-                # because the last post will be deleted
                 second_last_post = db.session.execute(
                     db.select(Post)
                     .join(Topic, Topic.id == Post.topic_id)
@@ -405,12 +393,11 @@ class Post(HideableCRUDMixin, db.Model):
                 ).scalar_one_or_none()
 
                 if second_last_post:
-                    # now lets update the second last post to the last post
                     self.topic.forum.last_post = second_last_post
-                    self.topic.forum.last_post_title = second_last_post.topic.title  # noqa
+                    self.topic.forum.last_post_title = second_last_post.topic.title
                     self.topic.forum.last_post_user = second_last_post.user
-                    self.topic.forum.last_post_username = second_last_post.username  # noqa
-                    self.topic.forum.last_post_created = second_last_post.date_created  # noqa
+                    self.topic.forum.last_post_username = second_last_post.username
+                    self.topic.forum.last_post_created = second_last_post.date_created
                 else:
                     self.topic.forum.last_post = None
                     self.topic.forum.last_post_title = None
@@ -418,13 +405,8 @@ class Post(HideableCRUDMixin, db.Model):
                     self.topic.forum.last_post_username = None
                     self.topic.forum.last_post_created = None
 
-            # check if there is a second last post in this topic
             if self.topic.second_last_post is not None:
-                # Now the second last post will be the last post
                 self.topic.last_post_id = self.topic.second_last_post
-
-            # there is no second last post, now the last post is also the
-            # first post
             else:
                 self.topic.last_post = self.topic.first_post
 
@@ -448,7 +430,6 @@ class Post(HideableCRUDMixin, db.Model):
         )
         user_post_count = db.session.execute(stmt).scalar_one()
 
-        # Update the post counts
         self.user.post_count = user_post_count
 
         if self.topic.hidden:
@@ -488,13 +469,10 @@ class Post(HideableCRUDMixin, db.Model):
             .limit(1)
         ).scalar_one_or_none()
 
-        # should never be None, but deal with it anyways to be safe
         if last_unhidden_post and self.date_created > last_unhidden_post.date_created:
             self.topic.last_post = self
-            self.second_last_post = last_unhidden_post  # TODO
+            self.second_last_post = last_unhidden_post
 
-            # if we're the newest in the topic again, we might be the newest
-            # in the forum again only set if our parent topic isn't hidden
             if not self.topic.hidden and (
                 not self.topic.forum.last_post
                 or self.date_created > self.topic.forum.last_post.date_created
@@ -532,7 +510,6 @@ class Topic(HideableCRUDMixin, db.Model):
         "Forum", back_populates="topics", foreign_keys=[forum_id]
     )
 
-    # One-to-one (uselist=False) relationship between first_post and topic
     first_post_id: Mapped[int | None] = mapped_column(
         ForeignKey("posts.id", ondelete="CASCADE"), nullable=True
     )
@@ -543,7 +520,6 @@ class Topic(HideableCRUDMixin, db.Model):
         post_update=True,
     )
 
-    # One-to-one
     last_post_id: Mapped[int | None] = mapped_column(
         ForeignKey("posts.id"), nullable=True
     )
@@ -562,7 +538,6 @@ class Topic(HideableCRUDMixin, db.Model):
         lazy="joined",
     )
 
-    # One-to-many
     posts: Mapped[list["Post"]] = relationship(
         "Post",
         back_populates="topic",
@@ -607,9 +582,6 @@ class Topic(HideableCRUDMixin, db.Model):
             self.title = title
 
         if user:
-            # setting the user here, even with setting the id, breaks the bulk
-            # insert stuff as they use the session.bulk_save_objects which does
-            # not trigger relationships
             self.user_id = user.id
             self.username = user.username
 
@@ -649,7 +621,6 @@ class Topic(HideableCRUDMixin, db.Model):
                         read, than you will also need to pass an forumsread
                         object.
         """
-        # If the topic is unread try to get the first unread post
         if topic_is_unread(self, topicsread, user, forumsread):
             stmt = db.select(Post).filter(Post.topic_id == self.id)
             if topicsread is not None:
@@ -705,18 +676,14 @@ class Topic(HideableCRUDMixin, db.Model):
                 days=flaskbb_config["TRACKER_LENGTH"]
             )
 
-        # The tracker is disabled - abort
         if read_cutoff is None or self.last_post is None:
             logger.debug("Readtracker is disabled.")
             return False
 
-        # Else the topic is still below the read_cutoff
         elif read_cutoff > self.last_post.date_created:
             logger.debug("Topic is below the read_cutoff (too old).")
             return False
 
-        # Can be None (cleared) if the user has never marked the forum as read.
-        # If this condition is false - we need to update the tracker
         if (
             forumsread
             and forumsread.cleared is not None
@@ -745,7 +712,6 @@ class Topic(HideableCRUDMixin, db.Model):
                            there is a new post since the forum has been marked as
                            read.
         """
-        # User is not logged in - abort
         if not user.is_authenticated:
             return False
 
@@ -756,20 +722,14 @@ class Topic(HideableCRUDMixin, db.Model):
         if not self.tracker_needs_update(forumsread, topicsread):
             return False
 
-        # Because we return True/False if the trackers have been
-        # updated, we need to store the status in a temporary variable
         updated = False
 
-        # A new post has been submitted that the user hasn't read.
-        # Updating...
         if topicsread:
             logger.debug("Updating existing TopicsRead '{}' object.".format(topicsread))
             topicsread.last_read = time_utcnow()
             topicsread.save()
             updated = True
 
-        # The user has not visited the topic before. Inserting him in
-        # the TopicsRead model.
         elif not topicsread:
             logger.debug("Creating new TopicsRead object.")
             topicsread = TopicsRead()
@@ -780,11 +740,9 @@ class Topic(HideableCRUDMixin, db.Model):
             topicsread.save()
             updated = True
 
-        # No unread posts
         else:
             updated = False
 
-        # Save True/False if the forums tracker has been updated.
         updated = forum.update_read(user, forumsread, topicsread)
 
         return updated
@@ -804,8 +762,6 @@ class Topic(HideableCRUDMixin, db.Model):
 
         :param new_forum: The new forum for the topic
         """
-
-        # if the target forum is the current forum, abort
         if self.forum == new_forum:
             return False
 
@@ -842,7 +798,6 @@ class Topic(HideableCRUDMixin, db.Model):
         """
         pluggy.hook.flaskbb_event_topic_save_before(topic=self)
 
-        # Updates the topic
         if self.id:
             db.session.add(self)
             db.session.commit()
@@ -854,28 +809,22 @@ class Topic(HideableCRUDMixin, db.Model):
             return
 
         with db.session.no_autoflush:
-            # Set the forum and user id
             self.forum = forum
             self.user = user
             self.username = user.username
 
-            # Set the last_updated time. Needed for the readstracker
             self.date_created = self.last_updated = time_utcnow()
 
-            # Insert and commit the topic
             db.session.add(self)
             db.session.commit()
 
             if post is not None:
                 self._post = post
 
-            # Create the topic post
             self._post.save(user, self)
 
-            # Update the first and last post id
             self.last_post = self.first_post = self._post
 
-            # Update the topic count
             forum.topic_count += 1
 
         db.session.commit()
@@ -887,7 +836,6 @@ class Topic(HideableCRUDMixin, db.Model):
         """Deletes a topic with the corresponding posts."""
 
         forum = self.forum
-        # get the users before deleting the topic
         invovled_users = self.involved_users()
 
         topic_last_post_id = self.last_post_id
@@ -895,7 +843,6 @@ class Topic(HideableCRUDMixin, db.Model):
         self._fix_user_post_counts(invovled_users)
         self._fix_post_counts(forum)
 
-        # forum.last_post_id shouldn't usually be none
         if forum.last_post_id is None or topic_last_post_id == forum.last_post_id:
             forum.update_last_post(commit=False)
 
@@ -935,7 +882,6 @@ class Topic(HideableCRUDMixin, db.Model):
         return self
 
     def _remove_topic_from_forum(self):
-        # Grab the second last topic in the forum + parents/childs
         topics = (
             db.session.execute(
                 db.select(Topic)
@@ -947,10 +893,8 @@ class Topic(HideableCRUDMixin, db.Model):
             .all()
         )
 
-        # do we want to replace the topic with the last post in the forum?
         if len(topics) > 1:
             if topics[0] == self:
-                # Now the second last post will be the last post
                 self.forum.last_post = topics[1].last_post
                 self.forum.last_post_title = topics[1].title
                 self.forum.last_post_user = topics[1].user
@@ -1027,7 +971,6 @@ class Topic(HideableCRUDMixin, db.Model):
             self.forum.last_post_created = self.last_updated
 
     def _handle_first_post(self):
-        # have to do this specially because otherwise we start recurisve calls
         if self.first_post:
             self.first_post.hidden = self.hidden
             self.first_post.hidden_by = self.hidden_by
@@ -1039,7 +982,6 @@ class Topic(HideableCRUDMixin, db.Model):
         """
         Returns all users involved in the topic
         """
-        # todo: Find circular import and break it
         from flaskbb.user.models import User
 
         stmt = (
@@ -1073,15 +1015,13 @@ class Forum(db.Model, CRUDMixin):
         "Category", back_populates="forums", foreign_keys=[category_id]
     )
 
-    # One-to-one
     last_post_id: Mapped[int | None] = mapped_column(
         ForeignKey("posts.id"), nullable=True
-    )  # we handle this case ourselfs
+    )
     last_post: Mapped["Post | None"] = relationship(
         "Post", uselist=False, foreign_keys=[last_post_id], post_update=True
     )
 
-    # set to null if the user got deleted
     last_post_user_id: Mapped[int | None] = mapped_column(
         ForeignKey("users.id", ondelete="SET NULL"), nullable=True
     )
@@ -1090,20 +1030,16 @@ class Forum(db.Model, CRUDMixin):
         "User", uselist=False, foreign_keys=[last_post_user_id]
     )
 
-    # Not nice, but needed to improve the performance; can be set to NULL
-    # if the forum has no posts
     last_post_title: Mapped[str | None] = mapped_column(String(255), nullable=True)
     last_post_username: Mapped[str | None] = mapped_column(String(255), nullable=True)
     last_post_created: Mapped[datetime | None] = mapped_column(
         UTCDateTime(timezone=True), default=time_utcnow, nullable=True
     )
 
-    # One-to-many
     topics: Mapped[list[Topic]] = relationship(
         "Topic", lazy="dynamic", cascade="all, delete-orphan"
     )
 
-    # Many-to-many
     moderators: Mapped[list["User"]] = relationship(
         "User",
         secondary=moderators,
@@ -1119,7 +1055,6 @@ class Forum(db.Model, CRUDMixin):
         lazy="joined",
     )
 
-    # Properties
     @property
     def slug(self):
         """Returns a slugified version from the forum title"""
@@ -1154,17 +1089,13 @@ class Forum(db.Model, CRUDMixin):
             .limit(1)
         ).scalar()
 
-        # Last post is none when there are no topics in the forum
         if last_post is not None:
-            # a new last post was found in the forum
             if last_post != self.last_post:
                 self.last_post = last_post
                 self.last_post_title = last_post.topic.title
                 self.last_post_user_id = last_post.user_id
                 self.last_post_username = last_post.username
                 self.last_post_created = last_post.date_created
-
-        # No post found..
         else:
             self.last_post = None
             self.last_post_title = None
@@ -1174,6 +1105,40 @@ class Forum(db.Model, CRUDMixin):
 
         if commit:
             db.session.commit()
+
+    def _get_unread_count(
+        self, user: "User", read_cutoff: datetime | None
+    ):
+        return db.session.execute(
+            db.select(db.func.count())
+            .select_from(Topic)
+            .outerjoin(
+                TopicsRead,
+                db.and_(
+                    TopicsRead.topic_id == Topic.id,
+                    TopicsRead.user_id == user.id,
+                ),
+            )
+            .outerjoin(
+                ForumsRead,
+                db.and_(
+                    ForumsRead.forum_id == Topic.forum_id,
+                    ForumsRead.user_id == user.id,
+                ),
+            )
+            .filter(
+                Topic.forum_id == self.id,
+                Topic.last_updated > read_cutoff,
+                db.or_(
+                    TopicsRead.last_read.is_(None),
+                    TopicsRead.last_read < Topic.last_updated,
+                ),
+                db.or_(
+                    ForumsRead.last_read.is_(None),
+                    ForumsRead.last_read < Topic.last_updated,
+                ),
+            )
+        ).scalar_one()
 
     def update_read(
         self, user: "User", forumsread: ForumsRead | None, topicsread: TopicsRead | None
@@ -1205,36 +1170,8 @@ class Forum(db.Model, CRUDMixin):
                 days=flaskbb_config["TRACKER_LENGTH"]
             )
 
-        # fetch the unread posts in the forum
-        unread_count = db.session.execute(
-            db.select(db.func.count())
-            .select_from(Topic)
-            .outerjoin(
-                TopicsRead,
-                db.and_(TopicsRead.topic_id == Topic.id, TopicsRead.user_id == user.id),
-            )
-            .outerjoin(
-                ForumsRead,
-                db.and_(
-                    ForumsRead.forum_id == Topic.forum_id,
-                    ForumsRead.user_id == user.id,
-                ),
-            )
-            .filter(
-                Topic.forum_id == self.id,
-                Topic.last_updated > read_cutoff,
-                db.or_(
-                    TopicsRead.last_read.is_(None),
-                    TopicsRead.last_read < Topic.last_updated,
-                ),
-                db.or_(
-                    ForumsRead.last_read.is_(None),
-                    ForumsRead.last_read < Topic.last_updated,
-                ),
-            )
-        ).scalar_one()
+        unread_count = self._get_unread_count(user, read_cutoff)
 
-        # No unread topics available - trying to mark the forum as read
         if unread_count == 0:
             logger.debug("No unread topics. Trying to mark the forum as read.")
 
@@ -1244,9 +1181,6 @@ class Forum(db.Model, CRUDMixin):
                 )
                 return False
 
-            # ForumRead Entry exists - Updating it because a new topic/post
-            # has been submitted and has read everything (obviously, else the
-            # unread_count would be useless).
             elif forumsread:
                 logger.debug(
                     "Updating existing ForumsRead '{}' object.".format(forumsread)
@@ -1255,7 +1189,6 @@ class Forum(db.Model, CRUDMixin):
                 forumsread.save()
                 return True
 
-            # No ForumRead Entry existing - creating one.
             logger.debug("Creating new ForumsRead object.")
             forumsread = ForumsRead()
             forumsread.user = user
@@ -1264,8 +1197,6 @@ class Forum(db.Model, CRUDMixin):
             forumsread.save()
             return True
 
-        # Nothing updated, because there are still more than 0 unread
-        # topicsread
         logger.debug(
             "No ForumsRead object updated - there are still {} unread topics.".format(
                 unread_count
@@ -1316,7 +1247,6 @@ class Forum(db.Model, CRUDMixin):
         else:
             with db.session.no_autoflush:
                 if groups is None:
-                    # importing here because of circular dependencies
                     from flaskbb.user.models import Group
 
                     self.groups = (
@@ -1336,11 +1266,9 @@ class Forum(db.Model, CRUDMixin):
 
         :param users: A list with user objects
         """
-        # Delete the forum
         db.session.delete(self)
         db.session.commit()
 
-        # Update the users post count
         if users:
             for user in users:
                 user.post_count = db.session.execute(
@@ -1363,7 +1291,6 @@ class Forum(db.Model, CRUDMixin):
             status = topic.move(self)
         return status
 
-    # Classmethods
     @classmethod
     def get_forum(cls, forum_id: int, user: "User"):
         """Returns the forum and forumsread object as a tuple for the user.
@@ -1401,7 +1328,9 @@ class Forum(db.Model, CRUDMixin):
         return forum, forumsread
 
     @classmethod
-    def get_topics(cls, forum_id: int, user: "User", page: int = 1, per_page: int = 20):
+    def get_topics(
+        cls, forum_id: int, user: "User", page: int = 1, per_page: int = 20
+    ):
         """Get the topics for the forum. If the user is logged in,
         it will perform an outerjoin for the topics with the topicsread and
         forumsread relation to check if it is read or unread.
@@ -1412,11 +1341,6 @@ class Forum(db.Model, CRUDMixin):
         :param per_page: How many topics per page should be shown
         """
         if user.is_authenticated:
-            # Now thats intersting - if i don't do the add_entity(Post)
-            # the n+1 still exists when trying to access 'topic.last_post'
-            # but without it it will fire another query.
-            # This way I don't have to use the last_post object when I
-            # iterate over the result set.
             stmt = (
                 db.select(Topic, Post, TopicsRead)
                 .outerjoin(
@@ -1456,7 +1380,6 @@ class Category(db.Model, CRUDMixin):
     description: Mapped[Text | None] = mapped_column(Text, nullable=True)
     position: Mapped[int] = mapped_column(default=1, nullable=False)
 
-    # One-to-many
     forums: Mapped[list[Forum]] = relationship(
         "Forum",
         back_populates="category",
@@ -1466,7 +1389,6 @@ class Category(db.Model, CRUDMixin):
         cascade="all, delete-orphan",
     )
 
-    # Properties
     @property
     def slug(self):
         """Returns a slugified version from the category title"""
@@ -1477,7 +1399,6 @@ class Category(db.Model, CRUDMixin):
         """Returns the slugified url for the category"""
         return url_for("forum.view_category", category_id=self.id, slug=self.slug)
 
-    # Methods
     @override
     def __repr__(self):
         """Set to a unique key specific to the object in the database.
@@ -1494,7 +1415,6 @@ class Category(db.Model, CRUDMixin):
         """
         from flaskbb.user.models import User
 
-        # and finally delete the category itself
         db.session.delete(self)
         db.session.commit()
 
@@ -1543,7 +1463,6 @@ class Category(db.Model, CRUDMixin):
         )
         return aliased(Forum, guest_forums)
 
-    # Classmethods
     @classmethod
     def get_all(cls, user: "User"):
         """Get all categories with all associated forums.
