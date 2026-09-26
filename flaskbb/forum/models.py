@@ -835,11 +835,11 @@ class Topic(HideableCRUDMixin, db.Model):
         """Deletes a topic with the corresponding posts."""
 
         forum = self.forum
-        invovled_users = self.involved_users()
+        involved_users = self.involved_users()
 
         topic_last_post_id = self.last_post_id
         db.session.delete(self)
-        self._fix_user_post_counts(invovled_users)
+        self._fix_user_post_counts(involved_users)
         self._fix_post_counts(forum)
 
         if forum.last_post_id is None or topic_last_post_id == forum.last_post_id:
