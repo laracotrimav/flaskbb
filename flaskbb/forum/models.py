@@ -740,9 +740,6 @@ class Topic(HideableCRUDMixin, db.Model):
             topicsread.save()
             updated = True
 
-        else:
-            updated = False
-
         updated = forum.update_read(user, forumsread, topicsread)
 
         return updated
