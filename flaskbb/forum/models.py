@@ -680,7 +680,7 @@ class Topic(HideableCRUDMixin, db.Model):
             logger.debug("Readtracker is disabled.")
             return False
 
-        elif read_cutoff > self.last_post.date_created:
+        if read_cutoff > self.last_post.date_created:
             logger.debug("Topic is below the read_cutoff (too old).")
             return False
 
