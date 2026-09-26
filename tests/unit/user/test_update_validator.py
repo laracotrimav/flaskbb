@@ -113,3 +113,26 @@ class TestValidateAvatarURL(object):
         change = UserDetailsChange(avatar=image_just_right.url)
         responses.add(image_just_right)
         validators.ValidateAvatarURL().validate(Fred, change)
+
+
+@pytest.mark.parametrize(
+    "new_email, should_raise",
+    [
+        ("new1@example.org", False),
+        ("test_normal@example.org", True),
+        ("new2@example.org", False),
+        ("fred@fred.fred", False),
+    ],
+)
+def test_cant_share_email_validator_cases(Fred, user, new_email, should_raise):
+    change = EmailUpdate(Fred.email, new_email)
+    validator = validators.CantShareEmailValidator(User)
+
+    raised_error = False
+
+    try:
+        validator.validate(Fred, change)
+    except ValidationError:
+        raised_error = True
+
+    assert raised_error is should_raise
