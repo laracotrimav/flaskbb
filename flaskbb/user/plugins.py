@@ -48,6 +48,7 @@ def flaskbb_tpl_profile_settings_menu():
 
 @impl(hookwrapper=True, tryfirst=True)
 def flaskbb_tpl_profile_links(user: User):
+    """Adds the default profile links to the plugin-provided links."""
     results = [
         NavigationLink(
             endpoint="user.profile",

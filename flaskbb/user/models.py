@@ -506,7 +506,9 @@ class Guest(AnonymousUserMixin):
 
     @cache.memoize()
     def get_permissions(self, exclude: set[str] | None = None):
-        """Returns a dictionary with all permissions the user has"""
+        """Returns the combined permissions from the user's groups.
+        The optional ``exclude`` set removes permissions that should not be
+        included in the returned dictionary."""
         if exclude:
             exclude = set(exclude)
         else:

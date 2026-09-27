@@ -65,6 +65,11 @@ def settings_update_handler():
 
 
 def settings_form_factory():
+    """Creates the settings form with available themes and languages.
+
+    When the form is not successfully submitted, it keeps the current user's
+    theme and language as the form values.
+    """
     form = GeneralSettingsForm()
     form.theme.choices = get_available_themes()
     form.theme.choices.insert(0, ("", "Default"))
